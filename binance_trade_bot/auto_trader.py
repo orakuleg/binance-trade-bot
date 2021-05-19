@@ -16,6 +16,8 @@ class AutoTrader:
         self.db = database
         self.logger = logger
         self.config = config
+        self.best_ratios: Dict[Dict[str, str], float] = {}
+        self.keeped_ratios: int
 
     def initialize(self):
         self.initialize_trade_thresholds()
@@ -146,6 +148,26 @@ class AutoTrader:
             best_pair = max(ratio_dict, key=ratio_dict.get)
             self.logger.info(f"Will be jumping from {coin} to {best_pair.to_coin_id}")
             self.transaction_through_bridge(best_pair)
+
+    def _jump_to_best_coin_keep(self, coin: Coin, coin_price: float):
+        """
+        Given a coin, search for a coin to jump to
+        """
+        ratio_dict = self._get_ratios(coin, coin_price)
+        ratio_dict_filtered = {k: v for k, v in ratio_dict.items() if v > 0}
+
+        if ratio_dict:
+            if self.keeped_ratios < self.config.RAIOS_TO_KEEP:
+                # self.best_ratios[pairs] = ratio_dict[pair]
+                # add to dict current ratio
+                self.keeped_ratios += 1
+            elif self.keeped_ratios == self.config.RAIOS_TO_KEEP:
+                best_pair = max(ratio_dict, key=ratio_dict.get)
+                self.logger.info(f"After {self.config.RAIOS_TO_KEEP} keeped ratio decided to jump. Keeped ratios: {self.best_ratios}")
+                self.logger.info(f"Will be jumping from {coin} to {best_pair.to_coin_id}")
+                self.keeped_ratios = 0
+                self.best_ratios = {}
+                self.transaction_through_bridge(best_pair)
 
     def bridge_scout(self):
         """
