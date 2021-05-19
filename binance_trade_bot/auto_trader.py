@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict, List
+from statistics import mean
 
 from sqlalchemy.orm import Session
 
@@ -155,19 +156,48 @@ class AutoTrader:
         """
         ratio_dict = self._get_ratios(coin, coin_price)
         ratio_dict_filtered = {k: v for k, v in ratio_dict.items() if v > 0}
+        best_pair = max(ratio_dict_filtered, key=ratio_dict.get)
 
-        if ratio_dict:
-            if self.keeped_ratios < self.config.RAIOS_TO_KEEP:
-                # self.best_ratios[pairs] = ratio_dict[pair]
-                # add to dict current ratio
-                self.keeped_ratios += 1
-            elif self.keeped_ratios == self.config.RAIOS_TO_KEEP:
-                best_pair = max(ratio_dict, key=ratio_dict.get)
-                self.logger.info(f"After {self.config.RAIOS_TO_KEEP} keeped ratio decided to jump. Keeped ratios: {self.best_ratios}")
-                self.logger.info(f"Will be jumping from {coin} to {best_pair.to_coin_id}")
-                self.keeped_ratios = 0
-                self.best_ratios = {}
-                self.transaction_through_bridge(best_pair)
+        """
+        RATIO_DICT_FILTERED EXAMPLE
+        type(best_pair) <class 'binance_trade_bot.models.pair.Pair'>
+        best_pair <CHZ->SXP :: 0.12595079250414312>
+        best_pair.from_coin_id CHZ
+        best_pair.to_coin_id SXP
+        best_pair.ratio 0.12595079250414312
+        """
+        prev_ratios = []
+        ratios_filler = 0
+        while ratios_filler <= 3:
+          prev_ratios.append(best_pair.ratio)
+          #Надо чекнуть что сюда будет передаваться, и что б передавалось нужная нам пара
+          self._get_ratios(coin, coin_price)
+          ratios_filler += 1
+
+        prev_ratio_average = mean(prev_ratios)
+        current_ratio = best_pair.ratio
+        while current_ratio > prev_ratio_average:
+            prev_ratios.pop([0])
+            prev_ratios.append(current_ratio)
+            prev_ratio_average = mean(prev_ratios)
+            #Надо чекнуть что сюда будет передаваться только ратио нашей пары
+            current_ratio = ???
+
+        self.logger.info(f"Will be jumping from {coin} to {best_pair.to_coin_id}")
+        self.transaction_through_bridge(best_pair)
+
+        # if ratio_dict_filtered:
+        #     if self.keeped_ratios < self.config.RAIOS_TO_KEEP:
+        #         # self.best_ratios[pairs] = ratio_dict[pair]
+        #         # add to dict current ratio
+        #         self.keeped_ratios += 1
+        #     elif self.keeped_ratios == self.config.RAIOS_TO_KEEP:
+        #         best_pair = max(ratio_dict, key=ratio_dict.get)
+        #         self.logger.info(f"After {self.config.RAIOS_TO_KEEP} keeped ratio decided to jump. Keeped ratios: {self.best_ratios}")
+        #         self.logger.info(f"Will be jumping from {coin} to {best_pair.to_coin_id}")
+        #         self.keeped_ratios = 0
+        #         self.best_ratios = {}
+        #         self.transaction_through_bridge(best_pair)
 
     def bridge_scout(self):
         """
